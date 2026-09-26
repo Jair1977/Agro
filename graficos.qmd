@@ -1,0 +1,163 @@
+# ============================================================
+# FUNCIÓN DE ANÁLISIS Y GRÁFICOS
+# ============================================================
+
+analisis_variable <- function(nombre_columna, nombre_grafico){
+  
+  
+  # Modelo ANOVA
+  
+  modelo <- aov(
+    as.formula(
+      paste(nombre_columna, "~ tratamiento")
+    ),
+    data = datos_final
+  )
+  
+  
+  print(summary(modelo))
+  
+  
+  # Tukey
+  
+  tukey <- HSD.test(
+    modelo,
+    "tratamiento",
+    group = TRUE
+  )
+  
+  
+  print(tukey$groups)
+  
+  
+  # Resumen de medias
+  
+  resumen <- datos_final %>%
+    group_by(tratamiento) %>%
+    summarise(
+      media = mean(.data[[nombre_columna]], na.rm = TRUE),
+      sd = sd(.data[[nombre_columna]], na.rm = TRUE),
+      n = n(),
+      error = sd/sqrt(n)
+    )
+  
+  
+  # Agregar letras Tukey
+  
+  grupos <- tukey$groups
+  
+  grupos$tratamiento <- rownames(grupos)
+  
+  
+  resumen <- merge(
+    resumen,
+    grupos[,c("tratamiento","groups")],
+    by="tratamiento"
+  )
+  
+  
+  # Gráfico
+  
+  grafico <- ggplot(
+    resumen,
+    aes(
+      x = tratamiento,
+      y = media,
+      fill = tratamiento
+    )
+  )+
+    
+    geom_col(
+      width = 0.7
+    )+
+    
+    geom_errorbar(
+      aes(
+        ymin = media-error,
+        ymax = media+error
+      ),
+      width=0.15,
+      linewidth=0.8
+    )+
+    
+    geom_text(
+      aes(
+        label=paste0(
+          round(media,2),
+          groups
+        )
+      ),
+      vjust=-1,
+      size=5
+    )+
+    
+    labs(
+      x="Tratamiento",
+      y=nombre_grafico,
+      fill="Tratamiento"
+    )+
+    
+    theme_classic()
+  
+  
+  return(grafico)
+}
+
+
+
+# ============================================================
+# CREAR GRÁFICOS
+# ============================================================
+
+
+grafico_altura <- analisis_variable(
+  "altura_cm",
+  "Altura de planta (cm)"
+)
+
+
+grafico_hojas <- analisis_variable(
+  "hojas",
+  "Número de hojas"
+)
+
+
+grafico_diametro <- analisis_variable(
+  "diametro_cm",
+  "Diámetro del tallo (cm)"
+)
+
+
+
+# Mostrar gráficos
+
+grafico_altura
+
+grafico_hojas
+
+grafico_diametro
+
+
+
+# ============================================================
+# EXPORTAR PDF
+# ============================================================
+
+pdf(
+  "Resultados_Lechuga_Compost.pdf",
+  width = 8,
+  height = 6
+)
+
+
+print(grafico_altura)
+
+print(grafico_hojas)
+
+print(grafico_diametro)
+
+
+dev.off()
+
+
+cat("PDF GENERADO CORRECTAMENTE")
